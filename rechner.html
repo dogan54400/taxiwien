@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fahrpreis berechnen — taxiwien.at</title>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;1,400&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14181C; --bg-panel:#1B2027; --bg-panel-2:#20262E;
+    --gold:#C9A15A; --gold-dim:#8A7040; --green:#5BA97A;
+    --text:#F2EFE9; --text-dim:#9AA1AC; --line:#2B323C;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; padding:40px 6%; }
+  .wrap{ max-width:640px; margin:0 auto; }
+  a.back{ color:var(--text-dim); font-size:13px; text-decoration:none; }
+  h1{ font-family:'Newsreader',serif; font-weight:500; font-size:28px; margin:16px 0 24px; }
+  .meter{ background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:26px; }
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim);
+    margin-bottom:7px; font-family:'IBM Plex Mono',monospace; }
+  .field input, .field select{ width:100%; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text);
+    padding:12px 14px; border-radius:8px; font-size:14px; font-family:inherit; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 20px; }
+  .chip{ font-family:'IBM Plex Mono',monospace; font-size:12px; padding:8px 14px; border:1px solid var(--line);
+    border-radius:20px; color:var(--text-dim); cursor:pointer; user-select:none; }
+  .chip.on{ border-color:var(--green); color:var(--green); background:rgba(91,169,122,0.08); }
+  .result{ border-top:1px dashed var(--line); padding-top:20px; margin-top:6px; }
+  .price-label{ font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1.5px; font-family:'IBM Plex Mono',monospace; }
+  .price-value{ font-family:'IBM Plex Mono',monospace; font-size:42px; font-weight:600; color:var(--gold); margin:4px 0; }
+  .breakdown{ font-size:13px; color:var(--text-dim); margin-top:10px; line-height:1.9; font-family:'IBM Plex Mono',monospace; }
+  .breakdown span{ color:var(--text); }
+  .status{ font-size:13px; color:var(--text-dim); margin-top:14px; min-height:18px; }
+  .status.error{ color:#D77; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← Zurück</a>
+  <h1>Fahrpreis berechnen</h1>
+
+  <div class="meter">
+    <div class="field">
+      <label>Von</label>
+      <input id="from" type="text" placeholder="Startadresse eingeben">
+    </div>
+    <div class="field">
+      <label>Nach</label>
+      <input id="to" type="text" placeholder="Zieladresse eingeben">
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Fahrtart</label>
+        <select id="art">
+          <option value="person">Personenfahrt (10% USt.)</option>
+          <option value="bote">Botenfahrt (20% USt.)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Auf-/Abschlag %</label>
+        <input id="zuschlag" type="number" value="0" step="1">
+      </div>
+    </div>
+
+    <div class="chips">
+      <div class="chip on" id="chipDay" onclick="setTarif('tag')">Tagtarif · Mo–Sa 06–23 Uhr</div>
+      <div class="chip" id="chipNight" onclick="setTarif('nacht')">Nachttarif · So/Feiertag/23–06 Uhr</div>
+    </div>
+
+    <button onclick="berechnen()" style="width:100%; background:var(--gold); color:#14181C; border:none;
+      padding:14px; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer;">Preis berechnen</button>
+
+    <div class="status" id="status"></div>
+
+    <div class="result" id="result" style="display:none;">
+      <div class="price-label">Fahrpreis</div>
+      <div class="price-value" id="priceValue">€ 0,00</div>
+      <div class="breakdown" id="breakdown"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let aktuellerTarif = 'tag';
+  function setTarif(t){
+    aktuellerTarif = t;
+    document.getElementById('chipDay').classList.toggle('on', t==='tag');
+    document.getElementById('chipNight').classList.toggle('on', t==='nacht');
+  }
+
+  let fromAutocomplete, toAutocomplete;
+
+  function initAutocomplete(){
+    fromAutocomplete = new google.maps.places.Autocomplete(document.getElementById('from'), {
+      componentRestrictions: {country: 'at'}
+    });
+    toAutocomplete = new google.maps.places.Autocomplete(document.getElementById('to'), {
+      componentRestrictions: {country: 'at'}
+    });
+  }
+
+  function berechnen(){
+    const from = document.getElementById('from').value;
+    const to = document.getElementById('to').value;
+    const status = document.getElementById('status');
+    const result = document.getElementById('result');
+    status.className = 'status';
+    result.style.display = 'none';
+
+    if(!from || !to){
+      status.textContent = 'Bitte Start- und Zieladresse eingeben.';
+      status.className = 'status error';
+      return;
+    }
+
+    status.textContent = 'Route wird berechnet...';
+
+    const service = new google.maps.DistanceMatrixService();
+    service.getDistanceMatrix({
+      origins: [from],
+      destinations: [to],
+      travelMode: 'DRIVING',
+      unitSystem: google.maps.UnitSystem.METRIC
+    }, (response, status_) => {
+      if(status_ !== 'OK'){
+        status.textContent = 'Route konnte nicht berechnet werden. Adresse prüfen.';
+        status.className = 'status error';
+        return;
+      }
+      const element = response.rows[0].elements[0];
+      if(element.status !== 'OK'){
+        status.textContent = 'Keine Route zwischen diesen Adressen gefunden.';
+        status.className = 'status error';
+        return;
+      }
+
+      const distanceMeter = element.distance.value;
+      const durationSekunden = element.duration.value;
+
+      const preis = tarifBerechnen(distanceMeter, durationSekunden);
+      anzeigen(preis, element.distance.text, element.duration.text);
+      status.textContent = '';
+    });
+  }
+
+  function tarifBerechnen(distanzMeter, dauerSekunden){
+    let grundpreis, buchungsgebuehr, meterProEinheitBis5, meterProEinheitAb5, sekProEinheit;
+
+    if(aktuellerTarif === 'tag'){
+      grundpreis = 3.80;
+      buchungsgebuehr = 2.00;
+      meterProEinheitBis5 = 210.53;
+      meterProEinheitAb5 = 344.83;
+      sekProEinheit = 20.69;
+    } else {
+      grundpreis = 4.30;
+      buchungsgebuehr = 0;
+      meterProEinheitBis5 = 183.07;
+      meterProEinheitAb5 = 299.85;
+      sekProEinheit = 17.99;
+    }
+
+    const distanzBis5km = Math.min(distanzMeter, 5000);
+    const distanzAb5km = Math.max(distanzMeter - 5000, 0);
+
+    const kostenBis5 = (distanzBis5km / meterProEinheitBis5) * 0.20;
+    const kostenAb5 = (distanzAb5km / meterProEinheitAb5) * 0.20;
+    const kostenZeit = (dauerSekunden / sekProEinheit) * 0.20;
+
+    let zwischensumme = grundpreis + buchungsgebuehr + kostenBis5 + kostenAb5 + kostenZeit;
+
+    const art = document.getElementById('art').value;
+    const steuersatz = art === 'bote' ? 0.20 : 0.10;
+    const mitSteuer = zwischensumme * (1 + steuersatz);
+
+    const zuschlagProzent = parseFloat(document.getElementById('zuschlag').value) || 0;
+    const endpreis = mitSteuer * (1 + zuschlagProzent / 100);
+
+    return {
+      endpreis, zwischensumme, steuersatz, zuschlagProzent,
+      grundpreis, buchungsgebuehr, kostenBis5, kostenAb5, kostenZeit
+    };
+  }
+
+  function anzeigen(p, distanzText, dauerText){
+    document.getElementById('priceValue').textContent = '€ ' + p.endpreis.toFixed(2).replace('.', ',');
+    document.getElementById('breakdown').innerHTML =
+      distanzText + ' · ' + dauerText + '<br>' +
+      'Grundpreis: <span>' + p.grundpreis.toFixed(2) + ' €</span><br>' +
+      (p.buchungsgebuehr > 0 ? 'Buchungsgebühr: <span>' + p.buchungsgebuehr.toFixed(2) + ' €</span><br>' : '') +
+      'km-Anteil: <span>' + (p.kostenBis5 + p.kostenAb5).toFixed(2) + ' €</span><br>' +
+      'Zeit-Anteil: <span>' + p.kostenZeit.toFixed(2) + ' €</span><br>' +
+      'Steuer: <span>' + (p.steuersatz*100).toFixed(0) + '%</span>' +
+      (p.zuschlagProzent !== 0 ? '<br>Auf-/Abschlag: <span>' + p.zuschlagProzent + '%</span>' : '');
+    document.getElementById('result').style.display = 'block';
+  }
+</script>
+
+<script async defer
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC3MzdN3BfJ-kl9jwLnWyKSMh5xJ30CmgM&libraries=places&callback=initAutocomplete">
+</script>
+
+</body>
+</html>

@@ -20,8 +20,9 @@
   .field{ margin-bottom:16px; }
   .field label{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim);
     margin-bottom:7px; font-family:'IBM Plex Mono',monospace; }
-  .field input, .field select{ width:100%; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text);
+  .field select, .field input{ width:100%; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text);
     padding:12px 14px; border-radius:8px; font-size:14px; font-family:inherit; }
+  gmp-place-autocomplete{ width:100%; display:block; }
   .row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   .chips{ display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 20px; }
   .chip{ font-family:'IBM Plex Mono',monospace; font-size:12px; padding:8px 14px; border:1px solid var(--line);
@@ -34,6 +35,7 @@
   .breakdown span{ color:var(--text); }
   .status{ font-size:13px; color:var(--text-dim); margin-top:14px; min-height:18px; }
   .status.error{ color:#D77; }
+  #debug{ font-size:11px; color:#666; margin-top:20px; font-family:monospace; white-space:pre-wrap; }
 </style>
 </head>
 <body>
@@ -44,11 +46,11 @@
   <div class="meter">
     <div class="field">
       <label>Von</label>
-      <input id="from" type="text" placeholder="Startadresse eingeben">
+      <div id="from-container"></div>
     </div>
     <div class="field">
       <label>Nach</label>
-      <input id="to" type="text" placeholder="Zieladresse eingeben">
+      <div id="to-container"></div>
     </div>
 
     <div class="row2">
@@ -73,18 +75,27 @@
     <button onclick="berechnen()" style="width:100%; background:var(--gold); color:#14181C; border:none;
       padding:14px; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer;">Preis berechnen</button>
 
-    <div class="status" id="status"></div>
+    <div class="status" id="status">Adressfelder werden geladen...</div>
 
     <div class="result" id="result" style="display:none;">
       <div class="price-label">Fahrpreis</div>
       <div class="price-value" id="priceValue">€ 0,00</div>
       <div class="breakdown" id="breakdown"></div>
     </div>
+
+    <div id="debug"></div>
   </div>
 </div>
 
 <script>
+  function debugLog(msg){
+    document.getElementById('debug').textContent += msg + '\n';
+    console.log(msg);
+  }
+
   let aktuellerTarif = 'tag';
+  let fromPlace = null;
+  let toPlace = null;
 
   function setTarif(t){
     aktuellerTarif = t;
@@ -92,25 +103,52 @@
     document.getElementById('chipNight').classList.toggle('on', t==='nacht');
   }
 
-  function initAutocomplete(){
-    new google.maps.places.Autocomplete(document.getElementById('from'), {
-      componentRestrictions: {country: 'at'}
-    });
-    new google.maps.places.Autocomplete(document.getElementById('to'), {
-      componentRestrictions: {country: 'at'}
-    });
+  async function init(){
+    try{
+      debugLog('Google Maps Script geladen, starte Places-Bibliothek...');
+      const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
+      debugLog('Places-Bibliothek geladen.');
+
+      const fromAutocomplete = new PlaceAutocompleteElement({ includedRegionCodes: ["at"] });
+      document.getElementById('from-container').appendChild(fromAutocomplete);
+
+      const toAutocomplete = new PlaceAutocompleteElement({ includedRegionCodes: ["at"] });
+      document.getElementById('to-container').appendChild(toAutocomplete);
+
+      debugLog('Adressfelder erstellt und eingefügt.');
+
+      fromAutocomplete.addEventListener('gmp-select', async ({ placePrediction }) => {
+        debugLog('Von-Adresse ausgewählt.');
+        const place = placePrediction.toPlace();
+        await place.fetchFields({ fields: ['location', 'formattedAddress'] });
+        fromPlace = place;
+        document.getElementById('status').textContent = '';
+      });
+
+      toAutocomplete.addEventListener('gmp-select', async ({ placePrediction }) => {
+        debugLog('Nach-Adresse ausgewählt.');
+        const place = placePrediction.toPlace();
+        await place.fetchFields({ fields: ['location', 'formattedAddress'] });
+        toPlace = place;
+        document.getElementById('status').textContent = '';
+      });
+
+      document.getElementById('status').textContent = 'Bereit. Adresse eingeben und aus der Liste wählen.';
+    } catch(err){
+      debugLog('FEHLER beim Laden: ' + err.message);
+      document.getElementById('status').textContent = 'Fehler beim Laden der Adressfelder: ' + err.message;
+      document.getElementById('status').className = 'status error';
+    }
   }
 
   function berechnen(){
-    const from = document.getElementById('from').value;
-    const to = document.getElementById('to').value;
     const status = document.getElementById('status');
     const result = document.getElementById('result');
     status.className = 'status';
     result.style.display = 'none';
 
-    if(!from || !to){
-      status.textContent = 'Bitte Start- und Zieladresse eingeben.';
+    if(!fromPlace || !toPlace){
+      status.textContent = 'Bitte Start- und Zieladresse aus den Vorschlägen auswählen.';
       status.className = 'status error';
       return;
     }
@@ -119,13 +157,13 @@
 
     const service = new google.maps.DistanceMatrixService();
     service.getDistanceMatrix({
-      origins: [from],
-      destinations: [to],
+      origins: [fromPlace.location],
+      destinations: [toPlace.location],
       travelMode: 'DRIVING',
       unitSystem: google.maps.UnitSystem.METRIC
     }, (response, status_) => {
       if(status_ !== 'OK'){
-        status.textContent = 'Route konnte nicht berechnet werden. Adresse prüfen.';
+        status.textContent = 'Route konnte nicht berechnet werden.';
         status.className = 'status error';
         return;
       }
@@ -208,8 +246,12 @@
   }
 </script>
 
-<script async defer
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC3MzdN3BfJ-kl9jwLnWyKSMh5xJ30CmgM&libraries=places&callback=initAutocomplete">
+<script>
+  (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+    key: "AIzaSyC3MzdN3BfJ-kl9jwLnWyKSMh5xJ30CmgM",
+    v: "weekly",
+  });
+  init();
 </script>
 
 </body>

@@ -22,7 +22,7 @@
   .status{ font-size:13px; margin-top:14px; color:var(--text-dim); }
   .status.ok{ color:var(--green); }
   .status.error{ color:#D77; }
-  #login-screen, #admin-screen{ display:none; }
+  #admin-screen{ display:none; }
 </style>
 </head>
 <body>
@@ -45,9 +45,9 @@
 </div>
 
 <script>
-  const SUPABASE_URL = "https://nzyhmeowvwvbejlngvsb.supabase.co";
+  const SUPABASE_URL = "https://nzyhmeowvwvbejlngvsb.supabase.co/rest/v1/";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im56eWhtZW93dnd2YmVqbG5ndnNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MzMyNjIsImV4cCI6MjEwMDUwOTI2Mn0.1QoSdLCvlxYJwDL_wLmccCAhHZWBiWZLrt9FYAVTXBA";
-  const PASSWORT = "sam2026"; // <-- hier dein eigenes Passwort eintragen
+  const PASSWORT = "sam2026";
 
   let rowId = null;
 
@@ -65,7 +65,7 @@
 
   async function ladeWert(){
     try{
-      const res = await fetch(SUPABASE_URL + '/rest/v1/einstellungen?select=id,zuschlag_prozent&order=id.asc&limit=1', {
+      const res = await fetch(SUPABASE_URL + "/rest/v1/einstellungen?select=id,zuschlag_prozent&order=id.asc&limit=1", {
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': 'Bearer ' + SUPABASE_KEY
@@ -89,7 +89,7 @@
     status.className = 'status';
 
     try{
-      const res = await fetch(SUPABASE_URL + '/rest/v1/einstellungen?id=eq.' + rowId, {
+      const res = await fetch(SUPABASE_URL + "/rest/v1/einstellungen?id=eq." + rowId, {
         method: 'PATCH',
         headers: {
           'apikey': SUPABASE_KEY,
@@ -111,8 +111,6 @@
       status.className = 'status error';
     }
   }
-
-  document.getElementById('login-screen').style.display = 'block';
 </script>
 </body>
 </html>

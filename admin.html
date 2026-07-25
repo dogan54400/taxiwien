@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intern — taxiwien.at</title>
+<style>
+  :root{
+    --bg:#14181C; --bg-panel:#1B2027; --bg-panel-2:#20262E;
+    --gold:#C9A15A; --green:#5BA97A; --text:#F2EFE9; --text-dim:#9AA1AC; --line:#2B323C;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--text); font-family:sans-serif; padding:40px 6%; }
+  .wrap{ max-width:480px; margin:0 auto; }
+  h1{ font-size:22px; margin-bottom:20px; }
+  .panel{ background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:26px; }
+  label{ display:block; font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-bottom:8px; }
+  input{ width:100%; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text);
+    padding:12px 14px; border-radius:8px; font-size:16px; margin-bottom:16px; }
+  button{ width:100%; background:var(--gold); color:#14181C; border:none; padding:14px;
+    border-radius:8px; font-weight:700; font-size:14px; cursor:pointer; }
+  .status{ font-size:13px; margin-top:14px; color:var(--text-dim); }
+  .status.ok{ color:var(--green); }
+  .status.error{ color:#D77; }
+  #login-screen, #admin-screen{ display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Interner Bereich</h1>
+
+  <div id="login-screen" class="panel">
+    <label>Passwort</label>
+    <input type="password" id="pw" placeholder="Passwort eingeben">
+    <button onclick="login()">Anmelden</button>
+    <div class="status" id="loginStatus"></div>
+  </div>
+
+  <div id="admin-screen" class="panel">
+    <label>Aktueller Auf-/Abschlag (%)</label>
+    <input type="number" id="zuschlagInput" step="1">
+    <button onclick="speichern()">Speichern</button>
+    <div class="status" id="saveStatus"></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://nzyhmeowvwvbejlngvsb.supabase.co/rest/v1/";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im56eWhtZW93dnd2YmVqbG5ndnNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MzMyNjIsImV4cCI6MjEwMDUwOTI2Mn0.1QoSdLCvlxYJwDL_wLmccCAhHZWBiWZLrt9FYAVTXBA";
+  const PASSWORT = "sam2026"; // <-- hier dein eigenes Passwort eintragen
+
+  let rowId = null;
+
+  function login(){
+    const eingabe = document.getElementById('pw').value;
+    if(eingabe === PASSWORT){
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('admin-screen').style.display = 'block';
+      ladeWert();
+    } else {
+      document.getElementById('loginStatus').textContent = 'Falsches Passwort.';
+      document.getElementById('loginStatus').className = 'status error';
+    }
+  }
+
+  async function ladeWert(){
+    try{
+      const res = await fetch(SUPABASE_URL + '/rest/v1/einstellungen?select=id,zuschlag_prozent&order=id.asc&limit=1', {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY
+        }
+      });
+      const data = await res.json();
+      if(data.length > 0){
+        rowId = data[0].id;
+        document.getElementById('zuschlagInput').value = data[0].zuschlag_prozent;
+      }
+    } catch(err){
+      document.getElementById('saveStatus').textContent = 'Fehler beim Laden: ' + err.message;
+      document.getElementById('saveStatus').className = 'status error';
+    }
+  }
+
+  async function speichern(){
+    const neuerWert = parseFloat(document.getElementById('zuschlagInput').value) || 0;
+    const status = document.getElementById('saveStatus');
+    status.textContent = 'Speichere...';
+    status.className = 'status';
+
+    try{
+      const res = await fetch(SUPABASE_URL + '/rest/v1/einstellungen?id=eq.' + rowId, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({ zuschlag_prozent: neuerWert })
+      });
+      if(res.ok){
+        status.textContent = 'Gespeichert: ' + neuerWert + '%';
+        status.className = 'status ok';
+      } else {
+        status.textContent = 'Fehler beim Speichern (Status ' + res.status + ')';
+        status.className = 'status error';
+      }
+    } catch(err){
+      status.textContent = 'Fehler: ' + err.message;
+      status.className = 'status error';
+    }
+  }
+
+  document.getElementById('login-screen').style.display = 'block';
+</script>
+</body>
+</html>

@@ -4,16 +4,135 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>taxiwien.at</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
-  body{background:#14181C;color:#F2EFE9;font-family:sans-serif;display:flex;
-  align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;}
-  h1{font-size:28px;} span{color:#C9A15A;}
+  :root{
+    --bg:#14181C; --bg-panel:#1B2027; --bg-panel-2:#20262E;
+    --gold:#C9A15A; --gold-dim:#8A7040; --green:#5BA97A;
+    --text:#F2EFE9; --text-dim:#9AA1AC; --line:#2B323C;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
+  nav{ display:flex; align-items:center; justify-content:space-between; padding:22px 6%;
+    border-bottom:1px solid var(--line); position:sticky; top:0; background:rgba(20,24,28,0.9); backdrop-filter:blur(10px); }
+  .logo{ font-family:'Newsreader',serif; font-size:22px; font-weight:600; }
+  .logo .mark{ color:var(--gold); font-style:italic; font-weight:500;}
+  .lang-switch{ display:flex; gap:6px; }
+  .lang-switch button{ background:transparent; border:1px solid var(--line); color:var(--text-dim);
+    font-family:'IBM Plex Mono',monospace; font-size:12px; padding:6px 11px; border-radius:20px; cursor:pointer;}
+  .lang-switch button.active{ border-color:var(--gold); color:var(--gold); }
+  .hero{ padding:64px 6% 40px; max-width:1180px; margin:0 auto; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--gold);
+    letter-spacing:2px; text-transform:uppercase; margin-bottom:18px; }
+  h1{ font-family:'Newsreader',serif; font-weight:500; font-size:40px; line-height:1.15; max-width:780px; }
+  h1 em{ font-style:italic; color:var(--gold); font-weight:500;}
+  .hero-sub{ color:var(--text-dim); font-size:16px; max-width:520px; margin-top:18px; line-height:1.6; }
+  .meter{ background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:28px; margin-top:32px; max-width:640px; position:relative; }
+  .badge{ position:absolute; top:-11px; left:24px; background:var(--bg); border:1px solid var(--gold-dim);
+    color:var(--gold); font-family:'IBM Plex Mono',monospace; font-size:11px; padding:3px 10px; border-radius:20px; }
+  .meter-row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+  .field label{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim);
+    margin-bottom:7px; font-family:'IBM Plex Mono',monospace; }
+  .field input{ width:100%; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text);
+    padding:12px 14px; border-radius:8px; font-size:14px; }
+  .meter-display{ display:flex; align-items:flex-end; justify-content:space-between;
+    border-top:1px dashed var(--line); padding-top:20px; margin-top:16px; flex-wrap:wrap; gap:16px; }
+  .price-label{ font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1.5px; font-family:'IBM Plex Mono',monospace; }
+  .price-value{ font-family:'IBM Plex Mono',monospace; font-size:40px; font-weight:600; color:var(--gold); }
+  .price-note{ font-size:12px; color:var(--text-dim); margin-top:6px; font-family:'IBM Plex Mono',monospace; }
+  section{ padding:60px 6%; max-width:1180px; margin:0 auto; }
+  .section-title{ font-family:'Newsreader',serif; font-size:28px; font-weight:500; margin-bottom:36px; }
+  .steps{ display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
+  .step{ border-top:1px solid var(--gold-dim); padding-top:18px; }
+  .step .num{ font-family:'IBM Plex Mono',monospace; color:var(--gold); font-size:13px; display:block; margin-bottom:10px;}
+  .step h3{ font-family:'Newsreader',serif; font-weight:500; font-size:18px; margin-bottom:8px; }
+  .step p{ color:var(--text-dim); font-size:14px; line-height:1.6; }
+  .tariff-grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .tariff-card{ background:var(--bg-panel); border:1px solid var(--line); border-radius:12px; padding:24px; }
+  .tariff-card h4{ font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--gold); text-transform:uppercase; margin-bottom:16px; }
+  .tariff-card .row{ display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  .tariff-card .row:last-child{ border-bottom:none; }
+  .tariff-card .val{ font-family:'IBM Plex Mono',monospace; }
+  footer{ padding:40px 6%; border-top:1px solid var(--line); color:var(--text-dim); font-size:13px; text-align:center; }
+  @media (max-width:720px){ h1{font-size:28px;} .meter-row{grid-template-columns:1fr;} .steps{grid-template-columns:1fr;} .tariff-grid{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
-  <div>
-    <h1><span>taxi</span>wien.at</h1>
-    <p>Die Seite ist im Aufbau.</p>
+
+<nav>
+  <div class="logo"><span class="mark">taxi</span>wien.at</div>
+  <div class="lang-switch">
+    <button class="active">DE</button>
+    <button>EN</button>
+    <button>TR</button>
   </div>
+</nav>
+
+<div class="hero">
+  <div class="eyebrow">Taxi-Vermittlung · Wien &amp; Umgebung</div>
+  <h1>Der Preis steht fest, <em>bevor</em> das Taxi kommt.</h1>
+  <p class="hero-sub">Adresse eingeben, Preis sehen, buchen. Berechnet nach dem Wiener Tarif — in Echtzeit, sobald die Buchung startet.</p>
+
+  <div class="meter">
+    <div class="badge">Beispiel — Buchung folgt in Kürze</div>
+    <div class="meter-row">
+      <div class="field"><label>Von</label><input value="Stephansplatz, 1010 Wien" disabled></div>
+      <div class="field"><label>Nach</label><input value="Flughafen Wien-Schwechat" disabled></div>
+    </div>
+    <div class="meter-display">
+      <div>
+        <div class="price-label">Fahrpreis (inkl. USt.)</div>
+        <div class="price-value">€ 42,80</div>
+        <div class="price-note">18,4 km · ca. 24 Min · Tagtarif</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section>
+  <div class="section-title">So funktioniert's</div>
+  <div class="steps">
+    <div class="step">
+      <span class="num">01 — Route</span>
+      <h3>Ziel eingeben</h3>
+      <p>Start- und Zieladresse eintragen, der Preis wird sofort berechnet.</p>
+    </div>
+    <div class="step">
+      <span class="num">02 — Bestätigung</span>
+      <h3>Fahrt sichern</h3>
+      <p>Kurzfristig als Anfrage, ab morgen automatisch bestätigt.</p>
+    </div>
+    <div class="step">
+      <span class="num">03 — Ankunft</span>
+      <h3>Taxi trifft ein</h3>
+      <p>Rechnung landet automatisch in Ihrem Konto.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="section-title">Tarif auf einen Blick</div>
+  <div class="tariff-grid">
+    <div class="tariff-card">
+      <h4>Tagtarif · Mo–Sa, 06:00–22:59</h4>
+      <div class="row"><span>Grundpreis</span><span class="val">3,80 €</span></div>
+      <div class="row"><span>Buchungsgebühr</span><span class="val">2,00 €</span></div>
+      <div class="row"><span>km-Tarif bis 5 km</span><span class="val">0,20 € / 210,53 m</span></div>
+      <div class="row"><span>km-Tarif ab 5 km</span><span class="val">0,20 € / 344,83 m</span></div>
+      <div class="row"><span>Zeittarif</span><span class="val">0,20 € / 20,69 s</span></div>
+    </div>
+    <div class="tariff-card">
+      <h4>Nachttarif · So, Feiertag, 23:00–05:59</h4>
+      <div class="row"><span>Grundpreis</span><span class="val">4,30 €</span></div>
+      <div class="row"><span>km-Tarif bis 5 km</span><span class="val">0,20 € / 183,07 m</span></div>
+      <div class="row"><span>km-Tarif ab 5 km</span><span class="val">0,20 € / 299,85 m</span></div>
+      <div class="row"><span>Zeittarif</span><span class="val">0,20 € / 17,99 s</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>taxiwien.at · Vermittlung von Taxifahrten in Wien &amp; Umgebung</footer>
+
 </body>
 </html>

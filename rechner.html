@@ -117,7 +117,58 @@
       : '☀️ Tagtarif aktiv (Mo–Sa 06:00–22:59)';
   }
 
+  async function let globalerZuschlag = 0;
+
+  async function ladeZuschlag(){
+    try{
+      const res = await fetch("https://nzyhmeowvwvbejlngvsb.supabase.co/rest/v1//rest/v1/einstellungen?select=zuschlag_prozent&order=id.asc&limit=1", {
+        headers: {
+          'apikey': "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im56eWhtZW93dnd2YmVqbG5ndnNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MzMyNjIsImV4cCI6MjEwMDUwOTI2Mn0.1QoSdLCvlxYJwDL_wLmccCAhHZWBiWZLrt9FYAVTXBA",
+          'Authorization': 'Bearer ' + "sam2026"
+        }
+      });
+      const data = await res.json();
+      if(data.length > 0){
+        globalerZuschlag = parseFloat(data[0].zuschlag_prozent) || 0;
+      }
+    } catch(err){
+      console.warn('Zuschlag konnte nicht geladen werden, verwende 0%.');
+    }
+  }
+
   async function init(){
+    tarifAutomatischErkennen();
+    await ladeZuschlag();
+
+    try{
+      const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
+
+      const fromAutocomplete = new PlaceAutocompleteElement({ includedRegionCodes: ["at"] });
+      document.getElementById('from-container').appendChild(fromAutocomplete);
+
+      const toAutocomplete = new PlaceAutocompleteElement({ includedRegionCodes: ["at"] });
+      document.getElementById('to-container').appendChild(toAutocomplete);
+
+      fromAutocomplete.addEventListener('gmp-select', async ({ placePrediction }) => {
+        const place = placePrediction.toPlace();
+        await place.fetchFields({ fields: ['location', 'formattedAddress'] });
+        fromPlace = place;
+        document.getElementById('status').textContent = '';
+      });
+
+      toAutocomplete.addEventListener('gmp-select', async ({ placePrediction }) => {
+        const place = placePrediction.toPlace();
+        await place.fetchFields({ fields: ['location', 'formattedAddress'] });
+        toPlace = place;
+        document.getElementById('status').textContent = '';
+      });
+
+      document.getElementById('status').textContent = 'Bereit. Adresse eingeben und aus der Liste wählen.';
+    } catch(err){
+      document.getElementById('status').textContent = 'Fehler beim Laden der Adressfelder: ' + err.message;
+      document.getElementById('status').className = 'status error';
+    }
+  }{
     tarifAutomatischErkennen();
 
     try{
@@ -221,7 +272,8 @@
     const kostenZeit = einheitenZeit * 0.20;
 
     // Personenfahrt fest angenommen (10% USt.), da dieser Rechner für Kundenbuchungen ist
-    const endpreis = grundpreis + buchungsgebuehr + kostenBis5 + kostenAb5 + kostenZeit;
+    const basispreis = grundpreis + buchungsgebuehr + kostenBis5 + kostenAb5 + kostenZeit;
+    const endpreis = basispreis * (1 + globalerZuschlag / 100);
 
     return { endpreis, grundpreis, buchungsgebuehr, kostenBis5, kostenAb5, kostenZeit };
   }

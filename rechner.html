@@ -20,21 +20,21 @@
   .field{ margin-bottom:16px; }
   .field label{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim);
     margin-bottom:7px; font-family:'IBM Plex Mono',monospace; }
-  .field select, .field input{ width:100%; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text);
+  .field input, .field select{ width:100%; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text);
     padding:12px 14px; border-radius:8px; font-size:14px; font-family:inherit; }
   gmp-place-autocomplete{
-  width:100%;
-  display:block;
-  background-color: var(--bg-panel-2);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color-scheme: dark;
-}
-  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .chips{ display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 20px; }
-  .chip{ font-family:'IBM Plex Mono',monospace; font-size:12px; padding:8px 14px; border:1px solid var(--line);
-    border-radius:20px; color:var(--text-dim); cursor:pointer; user-select:none; }
-  .chip.on{ border-color:var(--green); color:var(--green); background:rgba(91,169,122,0.08); }
+    width:100%; display:block;
+    background-color: var(--bg-panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color-scheme: dark;
+  }
+  .row3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  .toggle-row{ display:flex; align-items:center; gap:10px; background:var(--bg-panel-2); border:1px solid var(--line);
+    border-radius:8px; padding:12px 14px; height:48px; }
+  .toggle-row input{ width:auto; }
+  .tarif-info{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--green); padding:8px 14px;
+    border:1px solid var(--gold-dim); border-radius:20px; display:inline-block; margin:6px 0 20px; }
   .result{ border-top:1px dashed var(--line); padding-top:20px; margin-top:6px; }
   .price-label{ font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1.5px; font-family:'IBM Plex Mono',monospace; }
   .price-value{ font-family:'IBM Plex Mono',monospace; font-size:42px; font-weight:600; color:var(--gold); margin:4px 0; }
@@ -42,7 +42,6 @@
   .breakdown span{ color:var(--text); }
   .status{ font-size:13px; color:var(--text-dim); margin-top:14px; min-height:18px; }
   .status.error{ color:#D77; }
-  #debug{ font-size:11px; color:#666; margin-top:20px; font-family:monospace; white-space:pre-wrap; }
 </style>
 </head>
 <body>
@@ -60,24 +59,25 @@
       <div id="to-container"></div>
     </div>
 
-    <div class="row2">
+    <div class="row3">
       <div class="field">
-        <label>Fahrtart</label>
-        <select id="art">
-          <option value="person">Personenfahrt (10% USt.)</option>
-          <option value="bote">Botenfahrt (20% USt.)</option>
-        </select>
+        <label>Personen</label>
+        <input id="personen" type="number" value="1" min="1" max="8">
       </div>
       <div class="field">
-        <label>Auf-/Abschlag %</label>
-        <input id="zuschlag" type="number" value="0" step="1">
+        <label>Gepäckstücke</label>
+        <input id="gepaeck" type="number" value="0" min="0" max="10">
+      </div>
+      <div class="field">
+        <label>Haustier?</label>
+        <div class="toggle-row">
+          <input id="haustier" type="checkbox">
+          <span style="font-size:13px;">ja, dabei</span>
+        </div>
       </div>
     </div>
 
-    <div class="chips">
-      <div class="chip on" id="chipDay" onclick="setTarif('tag')">Tagtarif · Mo–Sa 06–23 Uhr</div>
-      <div class="chip" id="chipNight" onclick="setTarif('nacht')">Nachttarif · So/Feiertag/23–06 Uhr</div>
-    </div>
+    <div class="tarif-info" id="tarifInfo">Tarif wird erkannt...</div>
 
     <button onclick="berechnen()" style="width:100%; background:var(--gold); color:#14181C; border:none;
       padding:14px; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer;">Preis berechnen</button>
@@ -89,32 +89,39 @@
       <div class="price-value" id="priceValue">€ 0,00</div>
       <div class="breakdown" id="breakdown"></div>
     </div>
-
-    <div id="debug"></div>
   </div>
 </div>
 
 <script>
-  function debugLog(msg){
-    document.getElementById('debug').textContent += msg + '\n';
-    console.log(msg);
-  }
-
   let aktuellerTarif = 'tag';
   let fromPlace = null;
   let toPlace = null;
 
-  function setTarif(t){
-    aktuellerTarif = t;
-    document.getElementById('chipDay').classList.toggle('on', t==='tag');
-    document.getElementById('chipNight').classList.toggle('on', t==='nacht');
+  function tarifAutomatischErkennen(){
+    const jetzt = new Date();
+    const wienZeit = new Date(jetzt.toLocaleString('en-US', { timeZone: 'Europe/Vienna' }));
+    const wochentag = wienZeit.getDay(); // 0 = Sonntag
+    const stunde = wienZeit.getHours();
+
+    let nacht = false;
+    if(wochentag === 0){
+      nacht = true; // Sonntag komplett Nachttarif
+    } else if(stunde >= 23 || stunde < 6){
+      nacht = true;
+    }
+
+    aktuellerTarif = nacht ? 'nacht' : 'tag';
+    const info = document.getElementById('tarifInfo');
+    info.textContent = nacht
+      ? '🌙 Nachttarif aktiv (So/23:00–05:59)'
+      : '☀️ Tagtarif aktiv (Mo–Sa 06:00–22:59)';
   }
 
   async function init(){
+    tarifAutomatischErkennen();
+
     try{
-      debugLog('Google Maps Script geladen, starte Places-Bibliothek...');
       const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
-      debugLog('Places-Bibliothek geladen.');
 
       const fromAutocomplete = new PlaceAutocompleteElement({ includedRegionCodes: ["at"] });
       document.getElementById('from-container').appendChild(fromAutocomplete);
@@ -122,10 +129,7 @@
       const toAutocomplete = new PlaceAutocompleteElement({ includedRegionCodes: ["at"] });
       document.getElementById('to-container').appendChild(toAutocomplete);
 
-      debugLog('Adressfelder erstellt und eingefügt.');
-
       fromAutocomplete.addEventListener('gmp-select', async ({ placePrediction }) => {
-        debugLog('Von-Adresse ausgewählt.');
         const place = placePrediction.toPlace();
         await place.fetchFields({ fields: ['location', 'formattedAddress'] });
         fromPlace = place;
@@ -133,7 +137,6 @@
       });
 
       toAutocomplete.addEventListener('gmp-select', async ({ placePrediction }) => {
-        debugLog('Nach-Adresse ausgewählt.');
         const place = placePrediction.toPlace();
         await place.fetchFields({ fields: ['location', 'formattedAddress'] });
         toPlace = place;
@@ -142,7 +145,6 @@
 
       document.getElementById('status').textContent = 'Bereit. Adresse eingeben und aus der Liste wählen.';
     } catch(err){
-      debugLog('FEHLER beim Laden: ' + err.message);
       document.getElementById('status').textContent = 'Fehler beim Laden der Adressfelder: ' + err.message;
       document.getElementById('status').className = 'status error';
     }
@@ -218,28 +220,17 @@
     const kostenAb5 = einheitenAb5 * 0.20;
     const kostenZeit = einheitenZeit * 0.20;
 
-    const bruttoPerson = grundpreis + buchungsgebuehr + kostenBis5 + kostenAb5 + kostenZeit;
+    // Personenfahrt fest angenommen (10% USt.), da dieser Rechner für Kundenbuchungen ist
+    const endpreis = grundpreis + buchungsgebuehr + kostenBis5 + kostenAb5 + kostenZeit;
 
-    const art = document.getElementById('art').value;
-    let endpreisVorZuschlag;
-
-    if(art === 'bote'){
-      const netto = bruttoPerson / 1.10;
-      endpreisVorZuschlag = netto * 1.20;
-    } else {
-      endpreisVorZuschlag = bruttoPerson;
-    }
-
-    const zuschlagProzent = parseFloat(document.getElementById('zuschlag').value) || 0;
-    const endpreis = endpreisVorZuschlag * (1 + zuschlagProzent / 100);
-
-    return {
-      endpreis, grundpreis, buchungsgebuehr, kostenBis5, kostenAb5, kostenZeit,
-      steuersatz: art === 'bote' ? 0.20 : 0.10, zuschlagProzent
-    };
+    return { endpreis, grundpreis, buchungsgebuehr, kostenBis5, kostenAb5, kostenZeit };
   }
 
   function anzeigen(p, distanzText, dauerText){
+    const personen = document.getElementById('personen').value;
+    const gepaeck = document.getElementById('gepaeck').value;
+    const haustier = document.getElementById('haustier').checked;
+
     document.getElementById('priceValue').textContent = '€ ' + p.endpreis.toFixed(2).replace('.', ',');
     document.getElementById('breakdown').innerHTML =
       distanzText + ' · ' + dauerText + '<br>' +
@@ -247,8 +238,8 @@
       (p.buchungsgebuehr > 0 ? 'Buchungsgebühr: <span>' + p.buchungsgebuehr.toFixed(2) + ' €</span><br>' : '') +
       'km-Anteil: <span>' + (p.kostenBis5 + p.kostenAb5).toFixed(2) + ' €</span><br>' +
       'Zeit-Anteil: <span>' + p.kostenZeit.toFixed(2) + ' €</span><br>' +
-      'Steuer: <span>' + (p.steuersatz*100).toFixed(0) + '%</span>' +
-      (p.zuschlagProzent !== 0 ? '<br>Auf-/Abschlag: <span>' + p.zuschlagProzent + '%</span>' : '');
+      '<br>👤 ' + personen + ' Person(en) · 🧳 ' + gepaeck + ' Gepäckstück(e)' +
+      (haustier ? ' · 🐾 Haustier dabei' : '');
     document.getElementById('result').style.display = 'block';
   }
 </script>

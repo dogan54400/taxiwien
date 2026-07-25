@@ -146,7 +146,7 @@
     });
   }
 
-function tarifBerechnen(distanzMeter, dauerSekunden){
+  function tarifBerechnen(distanzMeter, dauerSekunden){
     let grundpreis, buchungsgebuehr, meterProEinheitBis5, meterProEinheitAb5, sekProEinheit;
 
     if(aktuellerTarif === 'tag'){
@@ -166,7 +166,6 @@ function tarifBerechnen(distanzMeter, dauerSekunden){
     const distanzBis5km = Math.min(distanzMeter, 5000);
     const distanzAb5km = Math.max(distanzMeter - 5000, 0);
 
-    // Aufrunden auf ganze Einheiten, wie beim echten Taxameter
     const einheitenBis5 = Math.ceil(distanzBis5km / meterProEinheitBis5);
     const einheitenAb5 = Math.ceil(distanzAb5km / meterProEinheitAb5);
     const einheitenZeit = Math.ceil(dauerSekunden / sekProEinheit);
@@ -175,14 +174,12 @@ function tarifBerechnen(distanzMeter, dauerSekunden){
     const kostenAb5 = einheitenAb5 * 0.20;
     const kostenZeit = einheitenZeit * 0.20;
 
-    // Diese Summe ist bereits BRUTTO inkl. 10% Steuer (Personenfahrt-Tarif)
     const bruttoPerson = grundpreis + buchungsgebuehr + kostenBis5 + kostenAb5 + kostenZeit;
 
     const art = document.getElementById('art').value;
     let endpreisVorZuschlag;
 
     if(art === 'bote'){
-      // 10% Steuer rausrechnen, dann 20% neu draufrechnen
       const netto = bruttoPerson / 1.10;
       endpreisVorZuschlag = netto * 1.20;
     } else {
@@ -197,6 +194,8 @@ function tarifBerechnen(distanzMeter, dauerSekunden){
       steuersatz: art === 'bote' ? 0.20 : 0.10, zuschlagProzent
     };
   }
+
+  function anzeigen(p, distanzText, dauerText){
     document.getElementById('priceValue').textContent = '€ ' + p.endpreis.toFixed(2).replace('.', ',');
     document.getElementById('breakdown').innerHTML =
       distanzText + ' · ' + dauerText + '<br>' +
@@ -211,7 +210,7 @@ function tarifBerechnen(distanzMeter, dauerSekunden){
 </script>
 
 <script async defer
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC3MzdN3BfJ-kl9jwLnWyKSMh5xJ30CmgM&libraries=places&callback=initAutocomplete">
+  src="https://maps.googleapis.com/maps/api/js?key=DEIN_SCHLÜSSEL_HIER&libraries=places&callback=initAutocomplete">
 </script>
 
 </body>
